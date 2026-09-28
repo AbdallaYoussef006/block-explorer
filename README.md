@@ -4,7 +4,7 @@ A browser tool that reads your university's course-block PDFs and shows you, at 
 
 Course registration usually means opening a dozen block PDFs side by side and redrawing a timetable by hand. This does that part for you.
 
-**→ [Open Block Explorer](https://AbdallaYoussef006.github.io/block-explorer/)**
+**→ [Open Block Explorer](https://abdallayoussef006.github.io/block-explorer/)**
 
 ---
 
