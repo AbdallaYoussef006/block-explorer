@@ -36,10 +36,3 @@ Use **Export** to save a backup, since clearing your browser data will clear you
 - Built as a single HTML file with no dependencies and no build step — the PDF reader is written from scratch, so nothing is fetched from a CDN.
 - It reads text-based PDFs (the kind universities export). Scanned PDFs would need OCR and are not supported.
 
-## Contributing
-
-Issues and pull requests are welcome — particularly for other universities' block formats.
-
-## License
-
-MIT
