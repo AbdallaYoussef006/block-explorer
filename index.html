@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Explorer</title>
+<style>
+  /* ============================================================
+     Block Explorer — design tokens
+     One accent, a two-layer neutral system, semantic state colours.
+     Light is the default; dark follows the OS. Print is always light.
+     ============================================================ */
+  :root{
+    color-scheme: light;
+    /* neutrals */
+    --bg:#f5f6f8;
+    --panel:#ffffff;
+    --panel-2:#fafbfc;          /* sidebar / toolbar layer */
+    --raised:#ffffff;
+    --line:#e3e6ec;
+    --line-soft:#eef0f4;
+    --text:#15181e;
+    --text-2:#565e6e;
+    --muted:#686f7e;
+    /* accent — primary action, current selection, "my course" only */
+    --accent:#2a5bd7;
+    --accent-hover:#1f49b8;
+    --accent-press:#1a3f9f;
+    --accent-soft:#eff4ff;
+    --accent-line:#c4d6fb;
+    --accent-text:#1b45a8;
+    --on-accent:#ffffff;
+    --dz-bg:rgba(0,110,255,.041); --dz-foot:rgba(0,110,255,.075);
+    --dz-clear:rgba(70,66,66,.10);
+    /* semantic */
+    --ok:#0d7a52;      --ok-soft:#e6f6ee;   --ok-line:#bde5d3;
+    --warn:#8a5900;    --warn-soft:#fdf3e2; --warn-line:#f0dcb4;
+    --danger:#bf2333;  --danger-soft:#fdeef0; --danger-line:#f2cbd1;
+    /* chrome */
+    --scroll:#c9cfda;
+    /* aliases used by inline styles in the markup and JS */
+    --mine:var(--accent); --other:var(--muted); --warn-fg:var(--warn);
+    --shadow-1:0 1px 2px rgba(17,24,39,.05), 0 1px 1px rgba(17,24,39,.04);
+    --shadow-2:0 2px 4px rgba(17,24,39,.05), 0 4px 12px rgba(17,24,39,.06);
+    --shadow-3:0 8px 16px rgba(17,24,39,.08), 0 24px 48px rgba(17,24,39,.14);
+    --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px;
+    --ease:cubic-bezier(.2,.7,.3,1);
+    --t:160ms var(--ease);
+  }
+  /* Dark follows the OS unless the switch in the app bar says otherwise. */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --bg:#0e1014;
+      --panel:#161920;
+      --panel-2:#12151b;
+      --raised:#1b1f27;
+      --line:#262c36;
+      --line-soft:#1e232b;
+      --text:#e9ebef;
+      --text-2:#a6aebc;
+      --muted:#8f98a8;
+      --accent:#6e8eff;
+      --accent-hover:#8aa4ff;
+      --accent-press:#a0b6ff;
+      --accent-soft:#182034;
+      --accent-line:#32436e;
+      --accent-text:#a7bdff;
+      --on-accent:#0c0f14;
+      --dz-bg:rgba(110,142,255,.06); --dz-foot:rgba(110,142,255,.10);
+      --dz-clear:rgba(255,255,255,.08);
+      --ok:#4cd39a;      --ok-soft:#10241c;   --ok-line:#1f4636;
+      --warn:#e3ac4f;    --warn-soft:#241d10; --warn-line:#4a3a1a;
+      --danger:#ff7b88;  --danger-soft:#2a1518; --danger-line:#53272d;
+      --scroll:#39404c;
+      --mine:var(--accent); --other:var(--muted);
+      --shadow-1:0 1px 2px rgba(0,0,0,.4);
+      --shadow-2:0 2px 4px rgba(0,0,0,.35), 0 6px 16px rgba(0,0,0,.35);
+      --shadow-3:0 10px 20px rgba(0,0,0,.45), 0 30px 60px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+      color-scheme: dark;
+      --bg:#0e1014;
+      --panel:#161920;
+      --panel-2:#12151b;
+      --raised:#1b1f27;
+      --line:#262c36;
+      --line-soft:#1e232b;
+      --text:#e9ebef;
+      --text-2:#a6aebc;
+      --muted:#8f98a8;
+      --accent:#6e8eff;
+      --accent-hover:#8aa4ff;
+      --accent-press:#a0b6ff;
+      --accent-soft:#182034;
+      --accent-line:#32436e;
+      --accent-text:#a7bdff;
+      --on-accent:#0c0f14;
+      --dz-bg:rgba(110,142,255,.06); --dz-foot:rgba(110,142,255,.10);
+      --dz-clear:rgba(255,255,255,.08);
+      --ok:#4cd39a;      --ok-soft:#10241c;   --ok-line:#1f4636;
+      --warn:#e3ac4f;    --warn-soft:#241d10; --warn-line:#4a3a1a;
+      --danger:#ff7b88;  --danger-soft:#2a1518; --danger-line:#53272d;
+      --scroll:#39404c;
+      --mine:var(--accent); --other:var(--muted);
+      --shadow-1:0 1px 2px rgba(0,0,0,.4);
+      --shadow-2:0 2px 4px rgba(0,0,0,.35), 0 6px 16px rgba(0,0,0,.35);
+      --shadow-3:0 10px 20px rgba(0,0,0,.45), 0 30px 60px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+    font-variant-numeric:tabular-nums;
+  }
+  /* browser surfaces belong to the design too */
+  ::selection{background:var(--accent-soft);color:var(--accent-text)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+  *{scrollbar-width:thin;scrollbar-color:var(--scroll) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:99px;
+    border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:content-box;
+    border:3px solid transparent}
+
+
+
+  /* ---------- PDF drop zone (empty state) ---------- */
+  .dropzone{
+    width:300px;max-width:100%;height:300px;margin:0 auto;
+    border-radius:10px;box-shadow:4px 4px 30px rgba(0,0,0,.14);
+    display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+    padding:10px;gap:6px;background-color:var(--dz-bg);
+    transition:box-shadow var(--t),background-color var(--t),transform var(--t);
+  }
+  .dropzone.over{transform:scale(1.01);box-shadow:4px 4px 34px rgba(0,0,0,.2)}
+  .dz-head{
+    flex:1;width:100%;border:2px dashed var(--accent);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;
+    background:transparent;color:var(--text);cursor:pointer;padding:10px;
+    transition:background var(--t),border-color var(--t);
+  }
+  .dz-head:hover{background:var(--accent-soft);border-color:var(--accent);}
+  .dropzone.over .dz-head{background:var(--accent-soft);border-style:solid}
+  .dz-head svg{height:76px;width:76px;color:var(--accent);stroke-width:1.4}
+  .dz-head b{font-size:14px;font-weight:620;color:var(--text);margin-top:2px}
+  .dz-head span{font-size:12px;color:var(--muted);text-align:center;font-weight:400}
+  .dz-foot{
+    background-color:var(--dz-foot);width:100%;min-height:40px;padding:6px 8px;
+    border-radius:10px;display:flex;align-items:center;gap:8px;color:var(--text);
+    border:none;
+  }
+  .dz-foot p{flex:1;text-align:center;margin:0;font-size:12px;color:var(--text-2);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dropzone.has-file .dz-foot p{color:var(--text);font-weight:550}
+  .dz-ico{display:inline-flex;flex:0 0 auto}
+  .dz-ico svg{height:20px;width:20px;color:var(--accent)}
+  .dz-clear{
+    flex:0 0 auto;height:26px;width:26px;padding:4px;border-radius:50%;border:none;
+    background-color:var(--dz-clear);color:var(--accent);cursor:pointer;
+    box-shadow:0 2px 14px rgba(0,0,0,.14);
+  }
+  .dz-clear svg{height:100%;width:100%}
+  .dz-clear:hover{background-color:var(--danger-soft);color:var(--danger)}
+  .dz-note{max-width:430px;margin:16px auto 0;text-align:center;font-size:12.5px;
+    line-height:1.55;color:var(--muted)}
+  @media(max-width:560px){
+    .dropzone{height:270px}
+    .dz-head svg{height:62px;width:62px}
+  }
+
+  /* ---------- theme switch (app bar) ---------- */
+  .headtools{display:flex;align-items:center;gap:11px}
+  .hdiv{width:1px;height:22px;background:var(--line);flex:0 0 auto}
+  .toggle-switch{
+    position:relative;width:56px;height:28px;flex:0 0 auto;
+    /* the control means light-vs-dark, so it looks the same in both themes */
+    --light:#d8dbe0;       /* bar, light state   */
+    --light-edge:#c0c6d0;
+    --track:#2f3542;       /* bar, dark state    */
+    --track-edge:#3d4555;
+    --dark:#1b202a;        /* the moon's shadow side */
+    --moon:#eceef3;
+  }
+  /* margin:0 matters — the global label rule would otherwise shrink this box */
+  .switch-label{position:absolute;inset:0;display:block;cursor:pointer;border-radius:99px;
+    margin:0;padding:0}
+  /* kept focusable on purpose: display:none would drop it out of the tab order */
+  .checkbox{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;
+    cursor:pointer;z-index:2}
+  .slider{
+    position:absolute;inset:0;border-radius:99px;pointer-events:none;
+    background-color:var(--track);border:1px solid var(--track-edge);
+    transition:background-color .3s var(--ease),border-color .3s var(--ease);
+  }
+  .checkbox:checked ~ .slider{background-color:var(--light);border-color:var(--light-edge)}
+  /* the knob sits 4px inside the bar on every edge */
+  .slider::before{
+    content:"";position:absolute;top:4px;left:4px;width:18px;height:18px;
+    border-radius:50%;
+    background-color:var(--dark);
+    box-shadow:inset 8px -2px 0px 0px var(--moon);
+    transition:transform .3s var(--ease),background-color .3s var(--ease),
+               box-shadow .3s var(--ease);
+  }
+  .checkbox:checked ~ .slider::before{
+    transform:translateX(28px);
+    background-color:#28292c;
+    box-shadow:none;
+  }
+  .checkbox:focus-visible ~ .slider{outline:2px solid var(--accent);outline-offset:3px}
+  .switch-label:hover ~ .slider,.checkbox:hover ~ .slider{border-color:var(--muted)}
+  @media (prefers-reduced-motion:reduce){ .slider,.slider::before{transition:none} }
+
+  /* ---------- app bar ---------- */
+  header{
+    background:var(--panel);border-bottom:1px solid var(--line);
+    padding:13px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    position:sticky;top:0;z-index:20;
+  }
+  header h1{font-size:16px;margin:0;font-weight:640;letter-spacing:-.01em;
+    display:flex;align-items:center;gap:9px}
+  header h1 .mark{display:inline-flex;color:var(--accent)}
+  .sub{color:var(--muted);font-size:12.5px;font-weight:400;letter-spacing:0}
+
+  .wrap{padding:18px;display:grid;grid-template-columns:262px minmax(0,1fr);gap:18px;align-items:start}
+  .sidecol,.maincol{min-width:0}
+
+  /* ---------- surfaces ---------- */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+        box-shadow:var(--shadow-1)}
+  .card h2{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+           font-weight:620;margin:0;padding:13px 15px;border-bottom:1px solid var(--line-soft);
+           background:var(--panel-2);border-radius:var(--r-lg) var(--r-lg) 0 0}
+  .card .body{padding:14px 15px}
+
+  /* ---------- form controls ---------- */
+  label{display:block;font-size:12px;color:var(--text-2);margin:11px 0 5px;font-weight:500}
+  input,select,button{font:inherit;font-family:inherit}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);
+    background:var(--panel);color:var(--text);transition:border-color var(--t),box-shadow var(--t);
+    caret-color:var(--accent)}
+  input::placeholder{color:var(--muted)}
+  input:hover,select:hover{border-color:var(--scroll)}
+  input:focus,select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-soft)}
+  input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
+  select{appearance:none;padding-right:30px;cursor:pointer;
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),
+                     linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+
+  .row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+
+  /* ---------- buttons ---------- */
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel);
+    border-radius:var(--r-md);padding:8px 12px;color:var(--text);font-weight:500;
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    transition:background var(--t),border-color var(--t),color var(--t),transform 80ms var(--ease);
+    white-space:nowrap}
+  button:hover{background:var(--panel-2);border-color:var(--scroll)}
+  button:active{transform:translateY(.5px)}
+  button:disabled{cursor:not-allowed;opacity:.45}
+  button:disabled:hover{background:var(--panel);border-color:var(--line)}
+  button .ico{flex:0 0 auto;opacity:.8}
+  .primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);
+    font-weight:600;box-shadow:var(--shadow-1)}
+  .primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);
+    color:var(--on-accent)}
+  .primary:active{background:var(--accent-press)}
+  .primary .ico{opacity:.95}
+  .danger{color:var(--danger);border-color:var(--danger-line)}
+  .danger:hover{background:var(--danger-soft);border-color:var(--danger-line);color:var(--danger)}
+  .ghost{font-size:12.5px;padding:6px 10px}
+
+  .toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:12px 15px;
+    border-bottom:1px solid var(--line-soft);background:var(--panel-2);
+    border-radius:var(--r-lg) var(--r-lg) 0 0}
+
+  /* ---------- pills ---------- */
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;
+    background:var(--line-soft);color:var(--text-2);font-weight:550;
+    border:1px solid transparent;letter-spacing:.005em}
+  .pill.good{background:var(--ok-soft);color:var(--ok);border-color:var(--ok-line)}
+  .pill.bad{background:var(--danger-soft);color:var(--danger);border-color:var(--danger-line)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn-line)}
+
+  /* ---------- block list ---------- */
+  /* the list scrolls inside its card instead of stretching the page */
+  #blocks{max-height:52vh;overflow:auto;padding:5px}
+  .blk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r-md);
+    cursor:pointer;transition:background var(--t)}
+  .blk+.blk{margin-top:1px}
+  .blk:hover{background:var(--panel-2)}
+  .blk.on{background:var(--accent-soft)}
+  .blk.on b{color:var(--accent-text)}
+  .blk b{font-size:13px;font-weight:600;letter-spacing:-.005em;display:block}
+  .blk small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+  .blk .meta{flex:1;min-width:0}
+  #newBlock,#restoreDel{color:var(--accent)}
+  #newBlock b,#restoreDel b{color:inherit;display:flex;align-items:center;gap:6px}
+
+  /* ---------- schedule grid ---------- */
+  .gridwrap{overflow-x:auto;overflow-y:visible;padding:2px 2px 0}
+  table{border-collapse:collapse;width:100%;min-width:820px;table-layout:fixed}
+  th{font-size:12.5px;font-weight:600;color:var(--text-2);padding:11px 4px;
+     border-bottom:1px solid var(--line);letter-spacing:.005em}
+  td{border-top:1px solid var(--line-soft);border-left:1px solid var(--line-soft);
+     height:24px;padding:0;position:relative;vertical-align:top}
+  td.tc,th.tc{width:74px;border-left:none;color:var(--muted);font-size:11px;
+     text-align:right;padding-right:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  td.tc{border-top-color:transparent;transform:translateY(-7px)}
+
+  /* session card — surface tint carries "mine", not an accent bar */
+  .slot{position:absolute;left:3px;right:3px;border-radius:var(--r-md);
+    background:var(--raised);border:1px solid var(--line);box-shadow:var(--shadow-1);
+    padding:5px 8px;overflow:hidden;font-size:11px;z-index:2;cursor:pointer;
+    transition:box-shadow var(--t),border-color var(--t),background var(--t)}
+  .slot .t{color:var(--muted);font-size:10px;line-height:1.3;font-variant-numeric:tabular-nums}
+  .slot .c{font-weight:620;margin-top:1px;line-height:1.25;color:var(--text);letter-spacing:-.005em}
+  .slot .n{color:var(--muted);font-size:10px;margin-top:1px;line-height:1.3}
+  .slot.mine{background:var(--accent-soft);border-color:var(--accent-line)}
+  .slot.mine .c{color:var(--accent-text)}
+  .slot.mine .t,.slot.mine .n{color:var(--text-2)}
+  .slot.dim{background:var(--panel);border-color:var(--line-soft);box-shadow:none}
+  .slot.dim .c{color:var(--text-2);font-weight:550}
+  .slot.clash{border-color:var(--danger-line);background:var(--danger-soft)}
+  .slot.clash .c{color:var(--danger)}
+  .slot .x{position:absolute;top:2px;right:3px;border:none;background:transparent;
+    color:var(--muted);font-size:14px;line-height:1;padding:1px 4px;border-radius:var(--r-sm);
+    display:none;min-width:0}
+  .slot:hover .x{display:block}
+  .slot .x:hover{background:var(--danger-soft);color:var(--danger)}
+
+  /* short sessions shed the least important line, then clamp the title */
+  .slot.compact{padding:3px 7px}
+  .slot.compact .inst{display:none}
+  .slot.compact .t{font-size:9.5px;line-height:1.2}
+  .slot.compact .c{line-height:1.2;margin-top:0}
+  .slot.compact .n{line-height:1.2;margin-top:0}
+  .slot.compact2 .c{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;
+                    overflow:hidden;font-size:10.5px;line-height:1.15}
+  .slot.compact2 .t,.slot.compact2 .n{font-size:9px;line-height:1.15}
+  .slot:hover{height:auto!important;min-height:40px;z-index:30;box-shadow:var(--shadow-2);
+    border-color:var(--accent-line)}
+  .slot:hover .inst{display:block}
+  .slot:hover .c{-webkit-line-clamp:unset;font-size:11px}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;padding:11px 15px;
+    border-top:1px solid var(--line-soft);font-size:12px;color:var(--muted);
+    background:var(--panel-2);border-radius:0 0 var(--r-lg) var(--r-lg)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:3px;margin-right:7px;
+    vertical-align:1px}
+
+  /* ---------- messages ---------- */
+  .warnbox,.infobox{margin:12px 15px 0;padding:9px 12px;border-radius:var(--r-md);
+    font-size:12.5px;border:1px solid transparent}
+  .warnbox{background:var(--danger-soft);color:var(--danger);border-color:var(--danger-line)}
+  .infobox{background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent-line)}
+  .hidden{display:none}
+
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(6px);
+    z-index:80;background:var(--text);color:var(--panel);padding:11px 18px;
+    border-radius:var(--r-md);font-size:13px;font-weight:500;box-shadow:var(--shadow-3);
+    opacity:0;pointer-events:none;transition:opacity var(--t),transform var(--t)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ---------- import preview ---------- */
+  .imp{border-top:1px solid var(--line-soft);padding:9px 0;display:flex;gap:10px;
+    align-items:flex-start;font-size:13px}
+  .imp:first-child{border-top:none}
+  .imp input[type=checkbox]{margin-top:3px}
+  .imp .n{flex:1;min-width:0}
+  .imp .n small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+  .impwrap{max-height:40vh;overflow:auto;margin-top:4px}
+
+  /* ---------- history ---------- */
+  .hist{max-height:236px;overflow:auto;padding:5px}
+  .hrow{display:flex;gap:10px;align-items:center;padding:8px 10px;font-size:12.5px;
+    border-radius:var(--r-md)}
+  .hrow:hover{background:var(--panel-2)}
+  .hrow .n{flex:1;min-width:0}
+  .hrow .n b{font-weight:550;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hrow .n small{color:var(--muted);font-size:11px}
+  .hrow.undone{opacity:.6}
+  .hrow.undone .n b{text-decoration:line-through;text-decoration-thickness:1px;
+    text-underline-offset:2px}
+
+  /* ---------- ranking table ---------- */
+  #compare table{min-width:860px;table-layout:auto}
+  #compare th{position:sticky;top:0;background:var(--panel-2);z-index:1;
+    border-bottom:1px solid var(--line);white-space:nowrap}
+  #compare td,#compare th{border:0;border-bottom:1px solid var(--line-soft);
+    padding:9px 12px;height:auto;position:static;font-size:12.5px;text-align:left;
+    vertical-align:middle;white-space:nowrap}
+  #compare tbody tr:last-child td{border-bottom:0}
+  #compare td.num,#compare th:nth-child(3),#compare th:nth-child(4),
+  #compare th:nth-child(5),#compare th:nth-child(6){text-align:right;
+    font-variant-numeric:tabular-nums}
+  #compare td.notes{max-width:230px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+  #compare th.notes{text-align:left}
+  #compare .quiet{color:var(--muted)}
+  #compare tbody tr{transition:background var(--t)}
+  #compare tbody tr:hover td{background:var(--panel-2)}
+  #compare tr.on td{background:var(--accent-soft)}
+
+  /* ---------- modal ---------- */
+  .mask{position:fixed;inset:0;background:rgba(10,13,18,.5);display:flex;align-items:center;
+    justify-content:center;padding:18px;z-index:60;backdrop-filter:blur(2px)}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);
+    width:100%;max-width:410px;box-shadow:var(--shadow-3);max-height:90vh;overflow:auto;
+    animation:pop 180ms var(--ease)}
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){ .modal{animation:none} *{transition-duration:1ms!important} }
+  .modal h2{border-radius:var(--r-xl) var(--r-xl) 0 0}
+  .modal .body{padding:15px}
+
+  /* ---------- course chips ---------- */
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);
+    border-radius:99px;padding:4px 7px 4px 11px;font-size:12px;background:var(--panel-2);
+    color:var(--text-2);font-weight:500}
+  .chip button{border:none;background:none;padding:0 2px;color:var(--muted);font-size:14px;
+    line-height:1;border-radius:99px;min-width:0}
+  .chip button:hover{color:var(--danger);background:none}
+
+  /* ---------- movable Edit + History panels ---------- */
+  #utils{display:none}
+  #utils.placed{display:block}
+  #utils.placed.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+                      gap:18px;align-items:start;margin-top:18px}
+  #utils .card{margin-top:16px}
+  #utils.strip .card{margin-top:0}
+
+  /* ---------- responsive ---------- */
+  @media(max-width:980px){
+    .wrap{grid-template-columns:1fr;padding:13px;gap:13px}
+    .sidecol{order:2} .maincol{order:1}
+    #blocks{max-height:44vh}
+    header{position:static}
+  }
+  @media(max-width:560px){
+    .wrap{padding:10px;gap:11px}
+    header{padding:11px 13px;gap:9px}
+    header h1{font-size:15px;width:100%}
+    header .sub{display:block;font-size:12px}
+    header>div.noprint{margin-left:0!important;width:100%;display:flex;gap:7px}
+    header>div.noprint button{flex:1}
+    .headtools{width:100%;gap:9px}
+    .toggle-switch{margin-right:auto}
+    .card h2{padding:11px 13px}
+    .card .body{padding:13px}
+    .toolbar{padding:11px 13px}
+    .hist{max-height:190px}
+    #utils.placed.strip{grid-template-columns:1fr;gap:11px}
+    #utils .card{margin-top:11px}
+    table{min-width:640px}
+    .slot{font-size:10px;padding:4px 6px}
+    .slot .t,.slot .n{font-size:9px}
+    td.tc,th.tc{width:58px;font-size:10px;padding-right:7px}
+    th{font-size:12px}
+    .legend{font-size:12px;gap:12px}
+  }
+
+  /* ---------- print ---------- */
+  @media print{
+    :root, :root *{
+      color-scheme:light;
+      --bg:#fff; --panel:#fff; --panel-2:#fff; --raised:#fff;
+      --line:#c9ced8; --line-soft:#dfe3ea;
+      --text:#111418; --text-2:#3d4450; --muted:#555c68;
+      --accent:#1f4ac0; --accent-soft:#eef3ff; --accent-line:#b9cdf7; --accent-text:#16388f;
+      --on-accent:#fff;
+      --ok:#0b6344; --ok-soft:#eaf6f0; --warn:#6f4700; --warn-soft:#fdf5e8;
+      --danger:#a31d2b; --danger-soft:#fdf0f2;
+    }
+    .noprint{display:none!important}
+    .wrap{grid-template-columns:1fr;padding:0}
+    .card{box-shadow:none;border-color:#ccc}
+    .slot{box-shadow:none}
+    header{position:static}
+  }
+</style>
+</head>
+<body>
+<script>
+/* set the saved appearance before first paint so the page never flashes */
+(function(){ try{ var t=localStorage.getItem("blockExplorer.theme");
+  if(t==="light"||t==="dark") document.documentElement.setAttribute("data-theme",t);
+}catch(e){} })();
+</script>
+
+<header>
+  <h1><span class="mark"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M7.5 13h4M7.5 16.5h7"/></svg></span>Block Explorer <span class="sub">— Nile University</span></h1>
+  <div style="margin-left:auto" class="noprint headtools">
+    <div class="toggle-switch" title="Light or dark appearance">
+      <label class="switch-label" for="themeToggle">
+        <input type="checkbox" class="checkbox" id="themeToggle"
+               role="switch" aria-label="Light appearance">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <span class="hdiv" aria-hidden="true"></span>
+    <button class="ghost" id="tabGrid">Grid</button>
+    <button class="ghost" id="tabCompare">Compare all</button>
+    <button class="ghost" id="print"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="7.5" rx="2"/><path d="M7 14h10v6.5H7z"/></svg>Print</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- SIDEBAR -->
+  <div class="noprint sidecol" id="sideCol">
+    <div class="card">
+      <h2>Blocks with your courses</h2>
+      <div id="blocks"></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>My courses</h2>
+      <div class="body">
+        <div class="chips" id="chips"></div>
+        <label for="pick" id="pickLabel">Pick from courses</label>
+        <select id="pick"></select>
+        <label for="newCourse">Or type one</label>
+        <div class="row">
+          <input id="newCourse" placeholder="course name…">
+          <button id="addCourse" style="flex:0 0 auto">Add</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--text);margin-top:12px">
+          <input type="checkbox" id="onlyMine" style="width:auto"> Show only my courses
+        </label>
+      </div>
+    </div>
+
+    <div id="utilLeft"></div>
+  </div>
+
+  <!-- movable panels: Edit + History -->
+  <div id="utils" class="noprint">
+    <div class="card" style="margin-top:14px">
+      <h2>Edit</h2>
+      <div class="body">
+        <button id="addSession" style="width:100%">+ Add a session</button>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="undo"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h11a5 5 0 0 1 0 10H8"/><path d="M8 5 4 9l4 4"/></svg>Undo</button>
+          <button class="ghost" id="redo"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9H9a5 5 0 0 0 0 10h7"/><path d="m16 5 4 4-4 4"/></svg>Redo</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="reset"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2"/><path d="M3.5 4.5V10H9"/></svg>Reset to original</button>
+          <button class="ghost danger" id="del"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 4.5h4M9.5 7l.6 12h7.8l.6-12"/><path d="M6.5 7 7 19"/></svg>Delete this block</button>
+        </div>
+        <button class="primary" id="pdfBtn" style="width:100%;margin-top:8px"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V7.5z"/><path d="M14 3.5V7.5H18"/><path d="M9 13h6M9 16.5h4"/></svg>Import block PDF</button>
+        <input type="file" id="pdfFile" accept="application/pdf,.pdf" multiple class="hidden">
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="export">Export</button>
+          <button class="ghost" id="importBtn">Import</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json" class="hidden">
+        <p class="sub" style="margin:10px 0 0">Your edits are saved per block in this browser.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>History <span id="histCount"></span></h2>
+      <div class="hist" id="history"></div>
+      <div style="padding:9px 13px;border-top:1px solid var(--line)">
+        <button class="ghost danger" id="clearHist" style="width:100%">Clear history</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="maincol" id="mainCol">
+    <div class="card" id="gridView">
+      <div class="toolbar">
+        <b id="blkTitle" style="font-size:16px"></b>
+        <span id="blkPills"></span>
+        <span class="sub" style="margin-left:auto" id="blkEdited"></span>
+      </div>
+      <div id="msg"></div>
+      <div class="gridwrap"><table id="grid"></table></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--mine)"></i>One of my courses</span>
+        <span><i class="dot" style="background:var(--other)"></i>Other course in this block</span>
+        <span>L = lecture · T = tutorial · UB = University Building</span>
+      </div>
+    </div>
+
+    <div class="card hidden" id="compare">
+      <h2>All blocks side by side (your courses only)</h2>
+      <div class="gridwrap"><table id="cmpTable"></table></div>
+      <div class="legend"><span>Click any row to open that block in the grid.</span></div>
+    </div>
+    <div id="utilBottom"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   DATA — transcribed from the block PDFs (week 8.11 – 14.11)
+   fields: day | start | end | course | modality | section | room | instructor
+   day: 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
+   ============================================================ */
+var RAW = {};   /* no bundled blocks — you load your own from the PDFs */
+
+/* blocks CS60, CS61, CS62 and CS66 are not listed: they contain none of the five
+   courses (CS66 has Linear Algebra only). */
+var NOTE = {};
+
+var DEFAULT_MINE = ["Linear Algebra","Data Analysis","Introduction to Computer Architecture",
+                    "Software Engineering","Project Management"];
+
+/* ============================================================ */
+var DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+var KEY = "blockExplorer.v2";
+var START_H = 8, END_H = 21, PX = 24;   // 1 row = 30 min
+
+function parse(str, blk, i){
+  var p = str.split("|");
+  return {id:blk+"-"+i, day:+p[0], start:p[1], end:p[2], course:p[3],
+          mod:p[4], sec:p[5], room:p[6], inst:p[7]};
+}
+var BLOCKS = {};
+Object.keys(RAW).forEach(function(b){
+  BLOCKS[b] = RAW[b].map(function(s,i){ return parse(s,b,i); });
+});
+var BLOCK_IDS = Object.keys(BLOCKS).sort();
+
+/* ---------- state ---------- */
+var st = loadState();
+function loadState(){
+  var d = {active:"", mine:DEFAULT_MINE.slice(), onlyMine:false, edits:{}, custom:[],
+           deleted:[], undo:[], redo:[]};
+  try{ var v = localStorage.getItem(KEY); if(!v) return d;
+       var s = JSON.parse(v);
+       return {active:s.active||d.active, mine:s.mine||d.mine,
+               onlyMine:!!s.onlyMine, edits:s.edits||{}, custom:s.custom||[],
+               deleted:s.deleted||[], undo:s.undo||[], redo:s.redo||[]};
+  }catch(e){ return d; }
+}
+function isDeleted(b){ return (st.deleted||[]).indexOf(b)>=0; }
+function allIds(){
+  return BLOCK_IDS.concat(st.custom).filter(function(b){ return !isDeleted(b); }).sort();
+}
+function isCustom(b){ return (st.custom||[]).indexOf(b) >= 0; }
+function persist(){
+  /* history is capped, but if the browser is still out of room, drop the
+     oldest entries rather than losing the schedule itself */
+  for(var tries=0; tries<8; tries++){
+    try{ localStorage.setItem(KEY, JSON.stringify(st)); return true; }
+    catch(e){
+      if(st.undo && st.undo.length){ st.undo.shift(); continue; }
+      if(st.redo && st.redo.length){ st.redo.length=0; continue; }
+      return false;
+    }
+  }
+  return false;
+}
+
+/* ============================================================
+   HISTORY — survives closing the file. Instead of snapshotting the
+   whole schedule on every action (which would overflow storage),
+   each entry keeps only the parts that changed, so it can be undone
+   or restored later.
+   ============================================================ */
+var HIST_MAX = 30;
+function clone(v){ return v===undefined?undefined:JSON.parse(JSON.stringify(v)); }
+
+function capture(names){
+  var snap = {active:st.active, mine:clone(st.mine), custom:clone(st.custom),
+              deleted:clone(st.deleted), edits:{}};
+  (names||[]).forEach(function(n){ snap.edits[n] = st.edits[n] ? clone(st.edits[n]) : null; });
+  return snap;
+}
+function applySnap(snap){
+  st.active = snap.active;
+  st.mine   = clone(snap.mine);
+  st.custom = clone(snap.custom);
+  st.deleted = clone(snap.deleted||[]);
+  Object.keys(snap.edits).forEach(function(n){
+    if(snap.edits[n]===null) delete st.edits[n];
+    else st.edits[n] = clone(snap.edits[n]);
+  });
+}
+/* label = what the user did; names = blocks it touched */
+function mark(label, names){
+  st.undo.push({t:Date.now(), label:label||"Change", names:(names||[]).slice(),
+                before:capture(names)});
+  if(st.undo.length>HIST_MAX) st.undo.shift();
+  st.redo.length = 0;
+}
+function stepBack(){
+  if(!st.undo.length) return false;
+  var e = st.undo.pop();
+  var now = capture(e.names);
+  applySnap(e.before);
+  st.redo.push({t:Date.now(), label:e.label, names:e.names, before:now});
+  if(st.redo.length>HIST_MAX) st.redo.shift();
+  return true;
+}
+function stepForward(){
+  if(!st.redo.length) return false;
+  var e = st.redo.pop();
+  var now = capture(e.names);
+  applySnap(e.before);
+  st.undo.push({t:Date.now(), label:e.label, names:e.names, before:now});
+  return true;
+}
+
+/* current sessions for a block: edited copy if any, else original */
+function sessionsOf(b){ return st.edits[b] ? st.edits[b] : (BLOCKS[b] || []); }
+function editable(b){                      // make sure we're editing a copy
+  if(!st.edits[b]) st.edits[b] = JSON.parse(JSON.stringify(BLOCKS[b] || []));
+  return st.edits[b];
+}
+
+/* ---------- helpers ---------- */
+function mins(t){ var p=String(t).split(":"); return (+p[0])*60+(+p[1]||0); }
+function fmt(t){ var m=mins(t),h=Math.floor(m/60),mm=m%60,ap=h>=12?"PM":"AM",hh=h%12||12;
+                 return hh+":"+(mm<10?"0":"")+mm+" "+ap; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+function norm(s){ return String(s).toLowerCase().replace(/[^a-z0-9]/g,""); }
+function isMine(course){
+  var n = norm(course);
+  return st.mine.some(function(m){ var k=norm(m); return n===k || n.indexOf(k)>=0 || k.indexOf(n)>=0; });
+}
+function myList(b){ return sessionsOf(b).filter(function(s){ return isMine(s.course); }); }
+
+/* how many of my courses this block covers */
+function coverage(b){
+  var have = {}, list = myList(b);
+  st.mine.forEach(function(m){ have[m] = list.some(function(s){ return norm(s.course).indexOf(norm(m))>=0 || norm(m).indexOf(norm(s.course))>=0; }); });
+  return have;
+}
+function stats(b){
+  var list = myList(b), have = coverage(b);
+  var got = Object.keys(have).filter(function(k){ return have[k]; }).length;
+  var days = {}, last = 0, first = 24*60, sat = false;
+  list.forEach(function(s){
+    days[s.day]=1; if(s.day===6||s.day===5) sat=true;
+    last = Math.max(last, mins(s.end)); first = Math.min(first, mins(s.start));
+  });
+  return {got:got, need:st.mine.length, n:list.length, days:Object.keys(days).length,
+          last:last, first:first, weekend:sat, missing:Object.keys(have).filter(function(k){return !have[k];})};
+}
+function clashes(list){
+  var bad = {};
+  for(var i=0;i<list.length;i++) for(var j=i+1;j<list.length;j++){
+    var a=list[i], b=list[j];
+    if(a.day===b.day && mins(a.start)<mins(b.end) && mins(b.start)<mins(a.end)){ bad[a.id]=1; bad[b.id]=1; }
+  }
+  return bad;
+}
+
+/* ---------- sidebar: block list ---------- */
+function renderBlocks(){
+  var box = document.getElementById("blocks");
+  box.innerHTML = allIds().map(function(b){
+    var s = stats(b);
+    var pill = s.got===s.need ? '<span class="pill good">'+s.got+'/'+s.need+'</span>'
+                              : '<span class="pill warn">'+s.got+'/'+s.need+'</span>';
+    var tags = [];
+    if(s.n){
+      /* this block covers at least one of my courses — describe MY week in it */
+      if(s.weekend) tags.push("Saturday");
+      if(s.last>=18*60) tags.push("late");
+      tags.push(s.days+" day"+(s.days===1?"":"s"));
+    } else {
+      /* none of my courses here — just say how big the block is */
+      var tot = sessionsOf(b).length;
+      tags.push(tot+" session"+(tot===1?"":"s"));
+    }
+    return '<div class="blk'+(b===st.active?" on":"")+'" data-b="'+b+'">'+
+      '<div class="meta"><b>'+b+'</b>'+
+      '<small>'+tags.join(" · ")+'</small></div>'+pill+'</div>';
+  }).join("");
+  if(!allIds().length)
+    box.innerHTML = '<div style="padding:14px 13px" class="sub">No blocks yet — use '+
+      '<b>Import block PDF</b> to load the schedules your university published.</div>';
+  box.innerHTML +=
+    (st.deleted.length
+      ? '<div class="blk" id="restoreDel"><div class="meta">'+
+        "<b><svg class=\"ico\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 14 4.5 9.5 9 5\"/><path d=\"M4.5 9.5h10A5 5 0 0 1 14.5 19.5H9\"/></svg>Restore deleted</b>"+
+        '<small>'+st.deleted.length+' block'+
+        (st.deleted.length===1?'':'s')+' hidden</small></div></div>'
+      : '')+
+    '<div class="blk" id="newBlock"><div class="meta"><b><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>New block</b>'+
+    '<small>type one in from a PDF</small></div></div>';
+  box.querySelector("#newBlock").onclick = newBlock;
+  var rd = box.querySelector("#restoreDel");
+  if(rd) rd.onclick = restoreDeleted;
+  box.querySelectorAll(".blk[data-b]").forEach(function(el){
+    el.onclick = function(){ st.active = el.getAttribute("data-b"); persist(); renderAll(); };
+  });
+}
+
+/* ---------- create a block of your own ---------- */
+function newBlock(){
+  var mask = document.createElement("div");
+  mask.className = "mask";
+  mask.innerHTML =
+    '<div class="modal"><h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;'+
+    'color:var(--muted);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)">New block</h2>'+
+    '<div class="body"><label>Block name</label>'+
+    '<input id="nb_name" placeholder="CS75" autocomplete="off">'+
+    '<p class="sub" style="margin:9px 0 0">Creates an empty block. Use “+ Add a session” '+
+    'to type in each row from the PDF.</p>'+
+    '<div id="nb_err" class="sub" style="color:var(--danger);margin-top:6px"></div>'+
+    '<div class="row" style="margin-top:12px"><button id="nb_cancel">Cancel</button>'+
+    '<button class="primary" id="nb_ok">Create</button></div></div></div>';
+  document.body.appendChild(mask);
+  var input = mask.querySelector("#nb_name");
+  input.focus();
+  function close(){ document.body.removeChild(mask); }
+  mask.onclick = function(ev){ if(ev.target===mask) close(); };
+  mask.querySelector("#nb_cancel").onclick = close;
+  function create(){
+    var name = input.value.trim().toUpperCase().replace(/\s+/g,"");
+    if(!name){ mask.querySelector("#nb_err").textContent = "Give the block a name."; return; }
+    if(BLOCKS[name] || isCustom(name)){
+      mask.querySelector("#nb_err").textContent = name+" already exists."; return; }
+    mark("Created block "+name, [name]); st.custom.push(name); st.edits[name] = []; st.active = name;
+    persist(); close(); renderAll();
+  }
+  mask.querySelector("#nb_ok").onclick = create;
+  input.onkeydown = function(e){ if(e.key==="Enter") create(); };
+}
+
+/* ---------- my-courses chips ---------- */
+/* every distinct course across the blocks currently loaded */
+function allCourseNames(){
+  var seen={}, out=[];
+  allIds().forEach(function(b){
+    sessionsOf(b).forEach(function(x){
+      var c=(x.course||"").trim();
+      if(c && !seen[c.toLowerCase()]){ seen[c.toLowerCase()]=1; out.push(c); }
+    });
+  });
+  return out.sort(function(a,b){ return a.localeCompare(b); });
+}
+
+function renderPicker(){
+  var sel=document.getElementById("pick"),
+      lab=document.getElementById("pickLabel"),
+      names=allCourseNames(),
+      left=names.filter(function(c){ return !isMine(c); });
+  if(!names.length){
+    sel.innerHTML='<option value="">Import blocks first</option>';
+    sel.disabled=true; lab.textContent="Pick from courses";
+    return;
+  }
+  sel.disabled=false;
+  lab.textContent="Pick from courses ("+names.length+" found)";
+  sel.innerHTML='<option value="">'+(left.length?"Choose a course…":"All of them are already tracked")+'</option>'+
+    left.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join("");
+}
+
+function renderChips(){
+  document.getElementById("chips").innerHTML = st.mine.map(function(m,i){
+    return '<span class="chip">'+esc(m)+'<button data-i="'+i+'" title="remove">&times;</button></span>';
+  }).join("") || '<span class="sub">No courses tracked.</span>';
+  document.getElementById("chips").querySelectorAll("button").forEach(function(b){
+    b.onclick = function(){ mark("Removed course "+st.mine[+b.getAttribute("data-i")]);
+      st.mine.splice(+b.getAttribute("data-i"),1); persist(); renderAll(); };
+  });
+  document.getElementById("onlyMine").checked = st.onlyMine;
+  renderPicker();
+}
+document.getElementById("pick").onchange = function(){
+  var v=this.value; this.value="";
+  if(!v) return;
+  mark("Added course "+v); st.mine.push(v); persist(); renderAll();
+};
+document.getElementById("addCourse").onclick = function(){
+  var v = document.getElementById("newCourse").value.trim();
+  if(!v) return;
+  mark("Added course "+v); st.mine.push(v); document.getElementById("newCourse").value="";
+  persist(); renderAll();
+};
+document.getElementById("newCourse").onkeydown = function(e){
+  if(e.key === "Enter") document.getElementById("addCourse").click();
+};
+document.getElementById("onlyMine").onchange = function(){ st.onlyMine = this.checked; persist(); renderAll(); };
+
+/* ---------- grid ---------- */
+function renderGrid(){
+  var b = st.active;
+  if(!b || allIds().indexOf(b)<0){
+    document.getElementById("blkTitle").textContent = "No block selected";
+    document.getElementById("blkPills").innerHTML = "";
+    document.getElementById("blkEdited").textContent = "";
+    document.getElementById("msg").innerHTML = "";
+    document.getElementById("grid").innerHTML =
+      '<tr><td style="border:none;padding:30px 18px">'+
+      '<div class="dropzone" id="dropZone">'+
+        '<button type="button" class="dz-head" id="emptyImport">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.5A4.5 4.5 0 0 1 6 9.56a6 6 0 0 1 11.5-1.1A4.25 4.25 0 0 1 18 18.5"/><path d="M12 21V11"/><path d="m8.5 14.2 3.5-3.4 3.5 3.4"/></svg>'+
+          '<b>Import block PDF</b>'+
+          '<span>Drag your PDFs here, or click to browse</span>'+
+        '</button>'+
+        '<div class="dz-foot">'+
+          '<span class="dz-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V7.5z"/><path d="M14 3.5V7.5H18"/></svg></span>'+
+          '<p id="dzName">No file selected</p>'+
+          '<button type="button" id="dzClear" class="dz-clear" title="Clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 4.5h4M9.5 7l.6 12h7.8l.6-12"/></svg></button>'+
+        '</div>'+
+      '</div>'+
+      '<p class="dz-note">One file, several at once, or the merged file containing every '+
+      'block. Each is read automatically: day, time, course, lecture or tutorial, '+
+      'section, room and instructor.</p>'+
+      '</td></tr>';
+    wireDropZone();
+    var rb=document.getElementById("reset"), db=document.getElementById("del");
+    rb.disabled=db.disabled=true; rb.style.opacity=db.style.opacity=".45";
+    return;
+  }
+  var all = sessionsOf(b);
+  var shown = st.onlyMine ? all.filter(function(s){ return isMine(s.course); }) : all;
+  var useDays = [0,1,2,3,4];
+  if(all.some(function(s){ return s.day===5; })) useDays.push(5);
+  if(all.some(function(s){ return s.day===6; })) useDays.push(6);
+
+  var s = stats(b);
+  document.getElementById("blkTitle").textContent = "Block " + b;
+  document.getElementById("blkPills").innerHTML =
+    (s.got===s.need ? '<span class="pill good">all '+s.need+' courses</span>'
+                    : '<span class="pill warn">'+s.got+'/'+s.need+' — missing '+esc(s.missing.join(", "))+'</span>')+
+    ' <span class="pill">'+s.n+' sessions · '+s.days+' days</span>'+
+    (s.weekend?' <span class="pill bad">Saturday</span>':'')+
+    (s.last>=18*60?' <span class="pill warn">ends '+fmt(Math.floor(s.last/60)+":"+(s.last%60<10?"0":"")+(s.last%60))+'</span>':'');
+  document.getElementById("blkEdited").textContent = st.edits[b] ? "you have edited this block" : "";
+
+  /* Reset only means something for a built-in block you have changed */
+  var rBtn=document.getElementById("reset"), dBtn=document.getElementById("del");
+  var canReset = !!b && !isCustom(b) && !!st.edits[b] && !!BLOCKS[b];
+  rBtn.disabled = !canReset;
+  rBtn.style.opacity = canReset ? "" : ".45";
+  rBtn.title = canReset ? "Undo your changes to "+b
+                        : (isCustom(b) ? "This block has no original to reset to" : "No changes to reset");
+  dBtn.disabled = !b;
+  dBtn.style.opacity = b ? "" : ".45";
+  dBtn.title = b ? "Remove "+b+" from the list (Undo brings it back)" : "";
+
+  var msgs = [];
+  if(NOTE[b]) msgs.push('<div class="infobox">ℹ️ '+esc(NOTE[b])+'</div>');
+  var bad = clashes(myList(b));
+  if(Object.keys(bad).length) msgs.push('<div class="warnbox">⚠ Two of your courses overlap in this block — outlined in red.</div>');
+  document.getElementById("msg").innerHTML = msgs.join("");
+
+  var rows = (END_H-START_H)*2, html = "<tr><th class='tc'></th>";
+  useDays.forEach(function(d){ html += "<th>"+DAYS[d]+"</th>"; });
+  html += "</tr>";
+  for(var r=0;r<rows;r++){
+    var m = START_H*60 + r*30;
+    html += "<tr><td class='tc'>"+(m%60===0?fmt((m/60|0)+":00"):"")+"</td>";
+    for(var i=0;i<useDays.length;i++) html += "<td data-d='"+i+"' data-r='"+r+"'></td>";
+    html += "</tr>";
+  }
+  var tbl = document.getElementById("grid");
+  tbl.innerHTML = html;
+
+  shown.forEach(function(x){
+    var di = useDays.indexOf(x.day); if(di<0) return;
+    var off = mins(x.start)-START_H*60; if(off<0) off=0;
+    var row = Math.floor(off/30);
+    var cell = tbl.querySelector("td[data-d='"+di+"'][data-r='"+row+"']");
+    if(!cell) return;
+    var mine = isMine(x.course);
+    var el = document.createElement("div");
+    el.className = "slot"+(mine?" mine":"")+(!mine&&!st.onlyMine?" dim":"")+(bad[x.id]?" clash":"");
+    el.style.top = ((off%30)/30*PX)+"px";
+    el.style.height = Math.max((mins(x.end)-mins(x.start))/30*PX-3, 40)+"px";
+    el.innerHTML =
+      '<button class="x" title="Remove">&times;</button>'+
+      '<div class="t">'+fmt(x.start)+' – '+fmt(x.end)+'</div>'+
+      '<div class="c">'+esc(x.course)+'</div>'+
+      '<div class="n">'+esc(x.mod)+(x.sec?' · Sec '+esc(x.sec):'')+(x.room?' · '+esc(x.room):'')+'</div>'+
+      (x.inst&&x.inst!=="—"?'<div class="n inst">'+esc(x.inst)+'</div>':'');
+    el.title = fmt(x.start)+' – '+fmt(x.end)+'\n'+x.course+
+      '\n'+x.mod+(x.sec?' · Section '+x.sec:'')+(x.room?' · '+x.room:'')+
+      (x.inst&&x.inst!=="—"?'\n'+x.inst:'');
+    el.querySelector(".x").onclick = function(ev){
+      ev.stopPropagation();
+      mark("Removed "+x.course+" from "+b, [b]); var list = editable(b);
+      st.edits[b] = list.filter(function(y){ return y.id!==x.id; });
+      persist(); renderAll();
+    };
+    el.onclick = function(){ openEditor(x); };
+    cell.appendChild(el);
+    /* shrink only as much as this card actually needs */
+    if(el.scrollHeight > el.clientHeight+2){
+      el.classList.add("compact");
+      if(el.scrollHeight > el.clientHeight+2) el.classList.add("compact2");
+    }
+  });
+}
+
+/* ---------- compare view ---------- */
+function renderCompare(){
+  var head = "<thead><tr><th>Block</th><th>Covers</th><th>Sessions</th><th>Days</th>"+
+             "<th>Earliest</th><th>Latest</th><th>Weekend</th><th>Clash</th>"+
+             "<th class='notes'>Missing</th></tr></thead>";
+  var body = "<tbody>"+allIds().map(function(b){
+    var s = stats(b), cl = Object.keys(clashes(myList(b))).length;
+    function hm(m){ return fmt(Math.floor(m/60)+":"+(m%60<10?"0":"")+(m%60)); }
+    /* the full list is long enough to triple the row height — keep the cell to one
+       line and put everything in the tooltip */
+    var miss="—", full="";
+    if(s.missing.length){
+      full = s.missing.join(", ");
+      if(s.missing.length===s.need) miss = "all "+s.need;
+      else if(s.missing.length===1) miss = s.missing[0];
+      else miss = s.missing[0]+" +"+(s.missing.length-1);
+    }
+    return "<tr class='"+(b===st.active?"on":"")+"' data-b='"+b+"'>"+
+      "<td><b>"+b+"</b></td>"+
+      "<td>"+(s.got===s.need?'<span class="pill good">all '+s.need+'</span>'
+             :'<span class="pill '+(s.got?"warn":"bad")+'">'+s.got+'/'+s.need+'</span>')+"</td>"+
+      "<td class='num'>"+s.n+"</td><td class='num'>"+s.days+"</td>"+
+      "<td class='num'>"+(s.n?hm(s.first):"—")+"</td>"+
+      "<td class='num'>"+(s.n?hm(s.last):"—")+"</td>"+
+      "<td>"+(s.weekend?'<span class="pill bad">yes</span>':'<span class="quiet">no</span>')+"</td>"+
+      "<td>"+(cl?'<span class="pill bad">'+cl+'</span>':'<span class="quiet">no</span>')+"</td>"+
+      "<td class='notes'"+(full?" title='"+esc(full)+"'":"")+">"+esc(miss)+"</td></tr>";
+  }).join("")+"</tbody>";
+  document.getElementById("cmpTable").innerHTML = head+body;
+  document.getElementById("cmpTable").querySelectorAll("tr[data-b]").forEach(function(tr){
+    tr.style.cursor="pointer";
+    tr.onclick = function(){ st.active = tr.getAttribute("data-b"); persist(); showGrid(); renderAll(); };
+  });
+}
+
+/* ---------- editor modal ---------- */
+function openEditor(x){
+  var blank = !x;
+  var v = x || {id:"new-"+Date.now(), day:0, start:"08:30", end:"10:29",
+                course:"", mod:"L", sec:"", room:"", inst:""};
+  var mask = document.createElement("div");
+  mask.className = "mask";
+  mask.innerHTML =
+    '<div class="modal"><h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;'+
+    'color:var(--muted);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)">'+
+    (blank?"Add a session":"Edit session")+' — block '+st.active+'</h2><div class="body">'+
+    '<label>Course</label><input id="e_course" value="'+esc(v.course)+'">'+
+    '<label>Day</label><select id="e_day">'+DAYS.map(function(d,i){
+        return '<option value="'+i+'"'+(i===v.day?" selected":"")+'>'+d+'</option>';}).join("")+'</select>'+
+    '<div class="row"><div><label>Start</label><input id="e_start" type="time" value="'+v.start+'"></div>'+
+    '<div><label>End</label><input id="e_end" type="time" value="'+v.end+'"></div></div>'+
+    '<div class="row"><div><label>Type</label><select id="e_mod">'+
+      ['L','T','P'].map(function(m){return '<option'+(m===v.mod?" selected":"")+'>'+m+'</option>';}).join("")+
+      '</select></div><div><label>Section</label><input id="e_sec" value="'+esc(v.sec)+'"></div></div>'+
+    '<div class="row"><div><label>Room</label><input id="e_room" value="'+esc(v.room)+'"></div>'+
+    '<div><label>Instructor</label><input id="e_inst" value="'+esc(v.inst)+'"></div></div>'+
+    '<div id="e_err" class="sub" style="color:var(--danger);margin-top:8px"></div>'+
+    '<div class="row" style="margin-top:10px"><button id="e_cancel">Cancel</button>'+
+    '<button class="primary" id="e_save">Save</button></div></div></div>';
+  document.body.appendChild(mask);
+  mask.onclick = function(ev){ if(ev.target===mask) document.body.removeChild(mask); };
+  mask.querySelector("#e_cancel").onclick = function(){ document.body.removeChild(mask); };
+  mask.querySelector("#e_save").onclick = function(){
+    var o = {id:v.id,
+      course: mask.querySelector("#e_course").value.trim() || "Untitled",
+      day: +mask.querySelector("#e_day").value,
+      start: mask.querySelector("#e_start").value,
+      end: mask.querySelector("#e_end").value,
+      mod: mask.querySelector("#e_mod").value,
+      sec: mask.querySelector("#e_sec").value.trim(),
+      room: mask.querySelector("#e_room").value.trim(),
+      inst: mask.querySelector("#e_inst").value.trim()};
+    if(mins(o.end) <= mins(o.start)){
+      mask.querySelector("#e_err").textContent="End time must be after the start time."; return; }
+    mark((blank?"Added ":"Edited ")+o.course+" in "+st.active, [st.active]);
+    var list = editable(st.active);
+    var idx = list.findIndex(function(y){ return y.id===o.id; });
+    if(idx>=0) list[idx]=o; else list.push(o);
+    persist(); document.body.removeChild(mask); renderAll();
+  };
+}
+document.getElementById("addSession").onclick = function(){ openEditor(null); };
+
+/* ---------- toolbar ---------- */
+/* Reset puts a built-in block back the way it shipped. It does nothing for a
+   block you created or imported — there is no original to go back to. */
+document.getElementById("reset").onclick = function(){
+  var b = st.active;
+  if(!b || isCustom(b) || !st.edits[b]) return;
+  mark("Reset block "+b, [b]);
+  delete st.edits[b];
+  persist(); renderAll();
+};
+
+/* Delete removes ANY block from the list — built-in, imported or your own.
+   It is recorded in History, so Undo brings it straight back. */
+document.getElementById("del").onclick = function(){
+  var b = st.active;
+  if(!b) return;
+  mark("Deleted block "+b, [b]);
+  delete st.edits[b];
+  if(isCustom(b)) st.custom = st.custom.filter(function(x){ return x!==b; });
+  else if(!isDeleted(b)) st.deleted.push(b);
+  st.active = allIds()[0] || "";
+  persist(); renderAll();
+};
+
+function restoreDeleted(){
+  if(!st.deleted.length) return;
+  mark("Restored "+st.deleted.length+" deleted block"+(st.deleted.length===1?"":"s"), st.deleted.slice());
+  st.deleted.length = 0;
+  persist(); renderAll();
+}
+document.getElementById("undo").onclick = function(){
+  if(stepBack()){ persist(); renderAll(); }
+};
+document.getElementById("redo").onclick = function(){
+  if(stepForward()){ persist(); renderAll(); }
+};
+document.getElementById("print").onclick = function(){ window.print(); };
+document.getElementById("export").onclick = function(){
+  var blob = new Blob([JSON.stringify(st,null,2)],{type:"application/json"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "blocks-"+st.active+".json"; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); },1000);
+};
+document.getElementById("importBtn").onclick = function(){ document.getElementById("importFile").click(); };
+document.getElementById("importFile").onchange = function(e){
+  var f = e.target.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try{ var d = JSON.parse(r.result);
+         if(!d || typeof d!=="object" || (!d.edits && !d.mine && !d.custom))
+           throw new Error("not a Block Explorer export");
+         var touched = Object.keys(st.edits).concat(Object.keys(d.edits||{}));
+         mark("Imported a saved file", touched);
+         var keep = st.undo, keepR = st.redo;
+         st = {active: d.active||st.active, mine: d.mine||st.mine,
+               onlyMine: !!d.onlyMine, edits: d.edits||{}, custom: d.custom||[],
+               deleted: d.deleted||[], undo: keep, redo: keepR};
+         persist(); renderAll();
+    }catch(err){ toast("That file isn't a Block Explorer export."); }
+  };
+  r.readAsText(f); e.target.value = "";
+};
+
+/* ---------- tabs ---------- */
+function showGrid(){ document.getElementById("gridView").classList.remove("hidden");
+                     document.getElementById("compare").classList.add("hidden"); }
+function showCompare(){ document.getElementById("gridView").classList.add("hidden");
+                        document.getElementById("compare").classList.remove("hidden"); }
+document.getElementById("tabGrid").onclick = function(){ showGrid(); schedulePlace(); };
+document.getElementById("tabCompare").onclick = function(){ renderCompare(); showCompare(); schedulePlace(); };
+
+
+
+/* ============================================================
+   PDF IMPORT — reads block PDFs in the browser. No libraries,
+   no internet. Handles one block per file, several blocks in one
+   file (merged exports), and blocks that run onto a second page.
+   ============================================================ */
+/* ===== self-contained PDF block-table parser (no libraries, works offline) ===== */
+function pdfBlocksFromBytes(bytes){
+  var raw="";
+  for(var i=0;i<bytes.length;i+=8192)
+    raw+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+8192,bytes.length)));
+
+  /* content streams, in page order (these exports are uncompressed) */
+  var pages=[], p=0;
+  while(true){
+    var a=raw.indexOf("stream",p); if(a<0) break;
+    var b=raw.indexOf("endstream",a); if(b<0) break;
+    var body=raw.slice(a+6,b);
+    if(/\bTd\b/.test(body) && /\bTj\b/.test(body)) pages.push(body);
+    p=b+9;
+  }
+  if(!pages.length) throw new Error("no readable text in this PDF (it may be a scan or a compressed export)");
+
+  function unesc(t){
+    return t.replace(/\\([0-7]{1,3})/g,function(_,o){ return String.fromCharCode(parseInt(o,8)); })
+            .replace(/\\([()\\])/g,"$1").replace(/\\n/g," ").replace(/\\[rt]/g," ");
+  }
+  function runs(body){
+    var out=[], re=/BT\s+(-?[\d.]+)\s+(-?[\d.]+)\s+Td\s*\(/g, m;
+    while((m=re.exec(body))){
+      var i=re.lastIndex, txt="", depth=1;
+      while(i<body.length){
+        var ch=body[i];
+        if(ch==="\\"){ txt+=ch+body[i+1]; i+=2; continue; }
+        if(ch==="("){ depth++; }
+        if(ch===")"){ depth--; if(!depth){ i++; break; } }
+        txt+=ch; i++;
+      }
+      var t=unesc(txt).trim();
+      if(t) out.push({x:parseFloat(m[1]), y:parseFloat(m[2]), s:t});
+      re.lastIndex=i;
+    }
+    return out;
+  }
+
+  var DAYS={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+  var HDR=["Day","Date","Hour","Classroom","Instructor(s)","Course","Modality","Section"];
+
+  /* "CS03_CS04_CS05" -> 3 blocks;  "CS_2501&CS_2502" -> 2;  "CS-SO-2A" -> 1 */
+  function namesFrom(title){
+    return title.split(/[&,;]|\s+/).filter(Boolean).reduce(function(acc,tok){
+      if(/^CS\d+(_CS\d+)+$/i.test(tok)) return acc.concat(tok.split("_"));
+      return acc.concat([tok]);
+    },[]).map(function(n){ return n.replace(/_/g,"").toUpperCase(); })
+      .filter(function(n){ return /[A-Z0-9]/.test(n); });
+  }
+
+  var groups=[], cur=null, lastCols=null;
+
+  pages.forEach(function(body){
+    var rs=runs(body);
+    if(!rs.length) return;
+
+    /* does this page carry a header row? then it starts a new block */
+    var col={};
+    rs.forEach(function(r){ if(HDR.indexOf(r.s)>=0 && col[r.s]===undefined) col[r.s]=r.x; });
+    var found=HDR.filter(function(h){ return col[h]!==undefined; });
+    var cols=null;
+
+    if(found.length>=7){
+      found.sort(function(x,y){ return col[x]-col[y]; });
+      cols={names:found, xs:found.map(function(n){ return col[n]; })};
+      lastCols=cols;
+      var headY=col["Day"];
+      /* the block name is the run sitting above the header row */
+      var above=rs.filter(function(r){ return r.y>col["Day"]+2; })
+                  .sort(function(x,y){ return y.y-x.y; });
+      var hy=null, title="";
+      rs.forEach(function(r){ if(r.s==="Day") hy=r.y; });
+      var top=rs.filter(function(r){ return r.y>hy+2; }).sort(function(x,y){ return y.y-x.y; });
+      if(top.length){
+        var ty=top[0].y;
+        title=top.filter(function(r){ return Math.abs(r.y-ty)<2; })
+                 .sort(function(x,y){ return x.x-y.x; })
+                 .map(function(r){ return r.s; }).join(" ");
+      }
+      cur={names:namesFrom(title), title:title, rows:[]};
+      if(!cur.names.length) cur.names=["BLOCK "+(groups.length+1)];
+      groups.push(cur);
+    } else {
+      /* continuation page: no header, no title — keep filling the current block */
+      if(!cur || !lastCols) return;
+      cols=lastCols;
+    }
+
+    function colOf(x){ var c=0; for(var i=0;i<cols.xs.length;i++) if(x>=cols.xs[i]-5) c=i; return cols.names[c]; }
+    var byY={};
+    rs.forEach(function(r){ var k=Math.round(r.y); (byY[k]=byY[k]||[]).push(r); });
+    Object.keys(byY).map(Number).sort(function(x,y){ return y-x; }).forEach(function(k){
+      var line=byY[k].sort(function(x,y){ return x.x-y.x; });
+      var joined=line.map(function(r){ return r.s; }).join(" ");
+      if(/Week;/.test(joined)) return;
+      var cell={};
+      line.forEach(function(r){ var c=colOf(r.x); cell[c]=(cell[c]?cell[c]+" ":"")+r.s; });
+      var g=function(n){ return (cell[n]||"").trim(); };
+      var day=g("Day");
+      if(DAYS[day]!==undefined){
+        cur.rows.push({day:DAYS[day], hour:g("Hour"), room:g("Classroom"),
+                       inst:g("Instructor(s)"), course:g("Course"),
+                       mod:g("Modality"), sec:g("Section")});
+      } else if(cur.rows.length && !day && !g("Date")){
+        var r=cur.rows[cur.rows.length-1];
+        if(g("Classroom")) r.room+=" "+g("Classroom");
+        if(g("Instructor(s)")) r.inst+=" "+g("Instructor(s)");
+        if(g("Course")) r.course+=" "+g("Course");
+        if(g("Section") && !r.sec) r.sec=g("Section");
+        if(g("Modality") && !r.mod) r.mod=g("Modality");
+      }
+    });
+  });
+
+  var FIX={"Differential EquationsG":"Differential Equations","Logic DesignN":"Logic Design",
+           "Database SystemsS":"Database Systems","English I1":"English I","English II2":"English II",
+           "Data Structures and AlgorithmsD":"Data Structures and Algorithms",
+           "Discrete Mathematicss":"Discrete Mathematics"};
+  function tidy(rows){
+    var out=[];
+    rows.forEach(function(r){
+      var c=(" "+r.course+" ").replace(/\s+[LTP]\s+/g," ").replace(/\s+/g," ").trim();
+      var mm=/\s([LTP])\s/.exec(" "+r.course+" ");
+      var mod=(r.mod||(mm?mm[1]:"")).trim();
+      c=FIX[c]||c;
+      var t=/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(r.hour.replace(/\s/g,""));
+      if(!t) return;
+      var pad=function(n){ return (n<10?"0":"")+n; };
+      out.push({day:r.day, start:pad(+t[1])+":"+t[2], end:pad(+t[3])+":"+t[4],
+        course:c, mod:mod||"L", sec:r.sec.replace(/Section/gi,"").trim(),
+        room:r.room.replace(/University Building\s*(\d)\s*-\s*/i,"UB$1-").replace(/\s+/g," ").trim(),
+        inst:r.inst.replace(/_undefined_\s*default/i,"—").replace(/\s+/g," ").trim()});
+    });
+    return out;
+  }
+  return groups.map(function(g){ return {names:g.names, title:g.title, rows:tidy(g.rows)}; })
+               .filter(function(g){ return g.rows.length; });
+}
+
+function importPreview(items){
+  var mask=document.createElement("div"); mask.className="mask";
+  var usable=items.filter(function(x){ return !x.error; });
+  var body=items.map(function(x,i){
+    if(x.error) return '<div class="imp"><div class="n" style="color:var(--danger)"><b>'+
+      esc(x.file)+'</b><small>'+esc(x.error)+'</small></div></div>';
+    var exists=x.names.filter(function(n){ return BLOCKS[n]||isCustom(n); });
+    return '<div class="imp"><input type="checkbox" data-i="'+i+'" checked>'+
+      '<div class="n"><b>'+esc(x.names.join(", "))+'</b> '+
+      (exists.length?'<span class="pill warn">replaces</span>':'<span class="pill good">new</span>')+
+      '<small>'+x.rows.length+' sessions · '+esc(x.file)+'</small></div></div>';
+  }).join("");
+  mask.innerHTML='<div class="modal" style="max-width:470px">'+
+    '<h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);'+
+    'margin:0;padding:12px 14px;border-bottom:1px solid var(--line)">Import from PDF — '+
+    usable.length+' block'+(usable.length===1?'':'s')+' found</h2>'+
+    '<div class="body">'+
+    (usable.length>1?'<div class="row" style="margin-bottom:6px"><button class="ghost" id="ip_all">Select all</button>'+
+      '<button class="ghost" id="ip_none">Select none</button></div>':'')+
+    '<div class="impwrap">'+(body||'<span class="sub">Nothing readable.</span>')+'</div>'+
+    '<div class="row" style="margin-top:12px"><button id="ip_cancel">Cancel</button>'+
+    '<button class="primary" id="ip_ok"'+(usable.length?'':' disabled')+'>Add to explorer</button>'+
+    '</div></div></div>';
+  document.body.appendChild(mask);
+  function close(){ document.body.removeChild(mask); }
+  mask.onclick=function(e){ if(e.target===mask) close(); };
+  mask.querySelector("#ip_cancel").onclick=close;
+  var all=mask.querySelector("#ip_all"), none=mask.querySelector("#ip_none");
+  if(all) all.onclick=function(){ mask.querySelectorAll("input[type=checkbox]").forEach(function(c){ c.checked=true; }); };
+  if(none) none.onclick=function(){ mask.querySelectorAll("input[type=checkbox]").forEach(function(c){ c.checked=false; }); };
+  mask.querySelector("#ip_ok").onclick=function(){
+    var picked=[].slice.call(mask.querySelectorAll("input[type=checkbox]:checked"))
+                 .map(function(c){ return items[+c.getAttribute("data-i")]; });
+    if(!picked.length){ close(); return; }
+    var touched=[]; picked.forEach(function(x){ touched=touched.concat(x.names); });
+    mark("Imported "+touched.length+" block"+(touched.length===1?"":"s")+" from PDF", touched);
+    var last=null;
+    picked.forEach(function(x){
+      x.names.forEach(function(name){
+        st.edits[name]=x.rows.map(function(r,k){
+          return {id:name+"-imp"+k, day:r.day, start:r.start, end:r.end, course:r.course,
+                  mod:r.mod, sec:r.sec, room:r.room, inst:r.inst};
+        });
+        if(!BLOCKS[name] && !isCustom(name)) st.custom.push(name);
+        last=name;
+      });
+    });
+    if(last) st.active=last;
+    persist(); close(); renderAll();
+  };
+}
+
+function readFileBytes(f){
+  return new Promise(function(res,rej){
+    var r=new FileReader();
+    r.onload=function(){ res(new Uint8Array(r.result)); };
+    r.onerror=function(){ rej(new Error("could not read the file")); };
+    r.readAsArrayBuffer(f);
+  });
+}
+
+document.getElementById("pdfBtn").onclick=function(){ document.getElementById("pdfFile").click(); };
+function handlePdfFiles(files){
+  files=[].slice.call(files||[]);
+  if(!files.length) return;
+  dzName(files.length===1 ? files[0].name : files.length+" files");
+  var btn=document.getElementById("pdfBtn"), label=btn.innerHTML;
+  btn.disabled=true; btn.textContent="Reading\u2026";
+  var items=[];
+  files.reduce(function(chain,f){
+    return chain.then(function(){
+      return readFileBytes(f).then(function(bytes){
+        var groups=pdfBlocksFromBytes(bytes);
+        if(!groups.length){ items.push({file:f.name, error:"no schedule rows found", names:[], rows:[]}); return; }
+        groups.forEach(function(g){
+          var names=g.names.length?g.names:
+            [f.name.replace(/\.pdf$/i,"").replace(/^vb[_-]?/i,"").toUpperCase()];
+          items.push({file:f.name, names:names, rows:g.rows});
+        });
+      }).catch(function(err){ items.push({file:f.name, error:err.message, names:[], rows:[]}); });
+    });
+  }, Promise.resolve()).then(function(){
+    btn.disabled=false; btn.innerHTML=label;
+    importPreview(items);
+  });
+}
+document.getElementById("pdfFile").onchange=function(e){
+  /* copy the list before clearing the input — clearing empties the live FileList */
+  var files=[].slice.call(e.target.files);
+  e.target.value="";
+  handlePdfFiles(files);
+};
+
+/* ---------- drop zone on the empty state ---------- */
+function dzName(text){
+  var el=document.getElementById("dzName");
+  if(el) el.textContent = text || "No file selected";
+  var z=document.getElementById("dropZone");
+  if(z) z.classList.toggle("has-file", !!text);
+}
+function wireDropZone(){
+  var z=document.getElementById("dropZone");
+  if(!z || z.dataset.wired) return;
+  z.dataset.wired="1";
+  var head=document.getElementById("emptyImport"),
+      clear=document.getElementById("dzClear");
+  if(head) head.onclick=function(){ document.getElementById("pdfFile").click(); };
+  if(clear) clear.onclick=function(ev){ ev.stopPropagation(); dzName(""); };
+  ["dragenter","dragover"].forEach(function(t){
+    z.addEventListener(t,function(e){ e.preventDefault(); e.stopPropagation();
+      z.classList.add("over"); });
+  });
+  ["dragleave","dragend"].forEach(function(t){
+    z.addEventListener(t,function(e){ e.preventDefault();
+      if(t==="dragleave" && z.contains(e.relatedTarget)) return;
+      z.classList.remove("over"); });
+  });
+  z.addEventListener("drop",function(e){
+    e.preventDefault(); e.stopPropagation(); z.classList.remove("over");
+    var files=[].slice.call(e.dataTransfer && e.dataTransfer.files || [])
+                .filter(function(f){ return /\.pdf$/i.test(f.name) || f.type==="application/pdf"; });
+    if(!files.length){ toast("Drop a PDF file."); return; }
+    handlePdfFiles(files);
+  });
+}
+
+/* ---------- where the Edit + History panels live ----------
+   The page has two pockets of empty space depending on what you are looking at.
+   On the Ranking tab the table runs long and the left column is short, so the
+   panels belong on the left. On the Grid tab the sidebar is the tall one, so
+   they move into a strip under the schedule instead of stretching the page. */
+var utils=document.getElementById("utils"),
+    slotLeft=document.getElementById("utilLeft"),
+    slotBottom=document.getElementById("utilBottom"),
+    sideCol=document.getElementById("sideCol"),
+    mainCol=document.getElementById("mainCol"),
+    placedIn=null;
+
+function placeUtils(){
+  var narrow = window.innerWidth<=980;
+  var where;
+  if(narrow){
+    where="left";                       /* single column: everything stacks anyway */
+  } else {
+    /* heights that do NOT depend on where the panels currently sit */
+    var sideBase=0;
+    [].forEach.call(sideCol.children, function(c){
+      if(c.id!=="utilLeft") sideBase+=c.offsetHeight+14;
+    });
+    var mainBase=0;
+    [].forEach.call(mainCol.children, function(c){
+      if(c.id!=="utilBottom" && !c.classList.contains("hidden")) mainBase+=c.offsetHeight;
+    });
+    var utilsH=0;
+    [].forEach.call(utils.children, function(c){ utilsH+=c.offsetHeight+14; });
+    /* hysteresis so it can't flip-flop */
+    if(placedIn==="bottom") where = (sideBase+utilsH < mainBase-120) ? "left" : "bottom";
+    else                    where = (sideBase+utilsH > mainBase+40)  ? "bottom" : "left";
+  }
+  if(where===placedIn) return;
+  placedIn=where;
+  utils.className="noprint placed"+(where==="bottom"?" strip":"");
+  (where==="bottom"?slotBottom:slotLeft).appendChild(utils);
+}
+var placeTimer=null;
+function schedulePlace(){ clearTimeout(placeTimer); placeTimer=setTimeout(placeUtils,60); }
+window.addEventListener("resize", schedulePlace);
+
+function toast(msg){
+  var t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove("show"); },3200);
+}
+
+/* ---------- appearance ---------- */
+var THEME_KEY="blockExplorer.theme";
+var themeBox=document.getElementById("themeToggle");
+var prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)");
+
+function storedTheme(){ try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; } }
+function currentTheme(){
+  var t=storedTheme();
+  if(t==="light"||t==="dark") return t;
+  return (prefersDark&&prefersDark.matches) ? "dark" : "light";
+}
+function paintTheme(){
+  var t=currentTheme(), explicit=storedTheme();
+  if(explicit==="light"||explicit==="dark") document.documentElement.setAttribute("data-theme",t);
+  else document.documentElement.removeAttribute("data-theme");
+  themeBox.checked = (t==="light");
+  themeBox.setAttribute("aria-label", t==="light" ? "Light appearance" : "Dark appearance");
+  themeBox.parentNode.parentNode.title =
+    (t==="light" ? "Light appearance" : "Dark appearance")+" — click to switch";
+}
+themeBox.onchange=function(){
+  try{ localStorage.setItem(THEME_KEY, this.checked ? "light" : "dark"); }catch(e){}
+  paintTheme();
+};
+/* with no explicit choice, keep following the operating system */
+if(prefersDark && prefersDark.addEventListener)
+  prefersDark.addEventListener("change", function(){ if(!storedTheme()) paintTheme(); });
+paintTheme();
+
+/* ---------- history panel ---------- */
+function ago(t){
+  var d=new Date(t), s=Math.floor((Date.now()-t)/1000);
+  if(s<60) return "just now";
+  if(s<3600) return Math.floor(s/60)+" min ago";
+  var today=new Date(); today.setHours(0,0,0,0);
+  if(t>=today.getTime()) return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  return d.toLocaleDateString([], {month:"short",day:"numeric"})+" "+
+         d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+}
+function renderHistory(){
+  var box=document.getElementById("history");
+  var undone=st.redo.slice().reverse();     /* newest-first, already undone */
+  var done=st.undo.slice().reverse();       /* newest-first, still applied  */
+  document.getElementById("histCount").textContent =
+    (st.undo.length+st.redo.length) ? "("+(st.undo.length+st.redo.length)+")" : "";
+  if(!st.undo.length && !st.redo.length){
+    box.innerHTML='<div style="padding:14px 13px" class="sub">'+
+      'Every change you make is listed here, and stays after you close the file.</div>';
+    return;
+  }
+  var html = undone.map(function(e){
+    return '<div class="hrow undone"><div class="n"><b>'+esc(e.label)+'</b>'+
+      '<small>undone · '+ago(e.t)+'</small></div>'+
+      '<button class="ghost" data-redo="1">Redo</button></div>';
+  }).join("");
+  html += done.map(function(e,i){
+    return '<div class="hrow"><div class="n"><b>'+esc(e.label)+'</b>'+
+      '<small>'+ago(e.t)+'</small></div>'+
+      '<button class="ghost" data-back="'+(i+1)+'">Undo</button></div>';
+  }).join("");
+  box.innerHTML=html;
+  box.querySelectorAll("button[data-back]").forEach(function(b){
+    b.onclick=function(){
+      var n=+b.getAttribute("data-back");
+      for(var k=0;k<n;k++) if(!stepBack()) break;
+      persist(); renderAll();
+    };
+  });
+  box.querySelectorAll("button[data-redo]").forEach(function(b){
+    b.onclick=function(){ if(stepForward()){ persist(); renderAll(); } };
+  });
+}
+document.getElementById("clearHist").onclick=function(){
+  if(!st.undo.length && !st.redo.length) return;
+  st.undo.length=0; st.redo.length=0; persist(); renderAll();
+};
+
+/* ---------- go ---------- */
+function renderAll(){ renderBlocks(); renderChips(); renderGrid(); renderCompare(); renderHistory(); schedulePlace(); }
+if(allIds().indexOf(st.active) < 0) st.active = allIds()[0] || "";
+renderAll();
+placeUtils();
+})();
+</script>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
